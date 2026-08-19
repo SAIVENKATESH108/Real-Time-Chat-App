@@ -1,8 +1,6 @@
-import sanitizeHtml from 'sanitize-html';
-
 /**
  * Sanitizes chat message text to eliminate XSS risks while preserving harmless text.
- * Strips all HTML tags and attributes.
+ * Strips all HTML tags, script elements, and dangerous characters without external CommonJS dependencies.
  * 
  * @param {string} text - Raw input text from client
  * @returns {string} Sanitized clean text
@@ -12,12 +10,11 @@ export function sanitizeMessageContent(text) {
     return '';
   }
 
-  // Strip all HTML tags entirely to prevent XSS injection
-  const cleaned = sanitizeHtml(text, {
-    allowedTags: [],
-    allowedAttributes: {},
-    disallowedTagsMode: 'discard',
-  });
+  // Strip <script>...</script> and <style>...</style> blocks completely along with their inner content
+  const cleaned = text
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<[^>]+>/g, '');
 
   return cleaned.trim();
 }
