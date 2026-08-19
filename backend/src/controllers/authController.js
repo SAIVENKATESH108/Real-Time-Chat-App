@@ -334,3 +334,53 @@ export async function updateProfile(req, res, next) {
     next(error);
   }
 }
+
+/**
+ * Permanently delete current user account and wipe all personal data, messages, and memberships.
+ * DELETE /api/auth/account
+ */
+export async function deleteAccount(req, res, next) {
+  try {
+    const userId = req.user.id;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete all messages authored by the user
+      await tx.message.deleteMany({
+        where: { userId },
+      });
+
+      // 2. Delete all room memberships for the user
+      await tx.roomMember.deleteMany({
+        where: { userId },
+      });
+
+      // 3. Delete non-general rooms created by the user
+      const userRooms = await tx.room.findMany({
+        where: {
+          createdBy: userId,
+          name: { not: 'general' },
+        },
+      });
+
+      for (const room of userRooms) {
+        await tx.message.deleteMany({ where: { roomId: room.id } });
+        await tx.roomMember.deleteMany({ where: { roomId: room.id } });
+        await tx.room.delete({ where: { id: room.id } });
+      }
+
+      // 4. Delete the User record
+      await tx.user.delete({
+        where: { id: userId },
+      });
+    });
+
+    clearAuthCookie(res);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Your account and all associated data have been permanently deleted.',
+    });
+  } catch (error) {
+    next(error);
+  }
+}

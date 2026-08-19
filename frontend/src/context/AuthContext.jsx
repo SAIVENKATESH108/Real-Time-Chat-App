@@ -68,6 +68,18 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const deleteAccount = async () => {
+    try {
+      await api.auth.deleteAccount();
+    } catch (err) {
+      console.warn('Delete account request failed:', err.message);
+      throw err;
+    } finally {
+      setUser(null);
+      disconnectSocket();
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -78,6 +90,7 @@ export function AuthProvider({ children }) {
         login,
         signup,
         logout,
+        deleteAccount,
         setAuthError,
       }}
     >

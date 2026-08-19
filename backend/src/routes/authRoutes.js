@@ -1,6 +1,6 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { signup, login, logout, getMe, updateProfile } from '../controllers/authController.js';
+import { signup, login, logout, getMe, updateProfile, deleteAccount } from '../controllers/authController.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateRequest } from '../middleware/validate.js';
 
@@ -37,5 +37,8 @@ router.get('/me', requireAuth, getMe);
 
 // Update Profile & Settings
 router.put('/profile', requireAuth, updateProfile);
+
+// Permanently Delete Account & Data
+router.delete('/account', requireAuth, deleteAccount);
 
 export default router;

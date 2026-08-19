@@ -35,6 +35,7 @@ export const api = {
     logout: () => request('/api/auth/logout', { method: 'POST' }),
     getMe: () => request('/api/auth/me', { method: 'GET' }),
     updateProfile: (payload) => request('/api/auth/profile', { method: 'PUT', body: JSON.stringify(payload) }),
+    deleteAccount: () => request('/api/auth/account', { method: 'DELETE' }),
   },
   users: {
     search: (query = '') => request(`/api/users/search?q=${encodeURIComponent(query)}`),

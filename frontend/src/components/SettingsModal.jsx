@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, User, Palette, Volume2, ShieldCheck, Bell, Upload, Camera, Trash2, Check, Sparkles, Moon, Sun } from 'lucide-react';
+import { X, User, Palette, Volume2, ShieldCheck, Bell, Upload, Camera, Trash2, Check, Sparkles, Moon, Sun, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import { useSocket } from '../context/SocketContext.jsx';
@@ -37,7 +37,7 @@ const AVATAR_PRESETS = [
 ];
 
 export function SettingsModal({ isOpen, onClose }) {
-  const { user } = useAuth();
+  const { user, deleteAccount } = useAuth();
   const { socket } = useSocket();
   const { theme, toggleTheme, setTheme, wallpaper, setWallpaper, soundEnabled, toggleSound } = useTheme();
 
@@ -48,6 +48,7 @@ export function SettingsModal({ isOpen, onClose }) {
   const [selectedAvatar, setSelectedAvatar] = useState(user?.avatarUrl || '');
   const [avatarImage, setAvatarImage] = useState(user?.avatarImage || null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState('');
   const [notifPermission, setNotifPermission] = useState(notifications.getPermission());
@@ -60,19 +61,14 @@ export function SettingsModal({ isOpen, onClose }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload a valid image file (PNG, JPG, WEBP, GIF).');
-      return;
-    }
-
     if (file.size > 5 * 1024 * 1024) {
-      setError('Image file is too large. Please select a photo under 5MB.');
+      setError('Image size exceeds 5MB limit.');
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = (event) => {
-      setAvatarImage(event.target.result);
+    reader.onload = (loadEvent) => {
+      setAvatarImage(loadEvent.target?.result);
       setSelectedAvatar('');
       setError('');
     };
@@ -81,56 +77,37 @@ export function SettingsModal({ isOpen, onClose }) {
 
   const handleRemovePhoto = () => {
     setAvatarImage(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleEnablePushNotifications = async () => {
-    const perm = await notifications.requestPermission();
-    setNotifPermission(perm);
-    if (perm === 'granted') {
-      notifications.show({
-        title: 'chatO Notifications Enabled',
-        body: 'You will receive real-time alerts when messages arrive.',
-      });
-    }
+    setSelectedAvatar('⚡');
   };
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+    setSaving(true);
     setError('');
     setSaveSuccess(false);
 
     try {
-      setSaving(true);
-      const res = await api.auth.updateProfile({
+      const payload = {
         displayName: displayName.trim(),
         statusMessage: statusMessage.trim(),
         avatarUrl: selectedAvatar,
-        avatarImage,
+        avatarImage: avatarImage,
         presenceStatus,
-        themePreference: theme,
         customWallpaper: wallpaper,
-      });
+        themePreference: theme,
+      };
 
-      if (user) {
-        user.displayName = displayName.trim();
-        user.statusMessage = statusMessage.trim();
-        user.avatarUrl = selectedAvatar;
-        user.avatarImage = avatarImage;
-        user.presenceStatus = presenceStatus;
+      const res = await api.auth.updateProfile(payload);
+      if (res.success) {
+        setSaveSuccess(true);
+        if (socket) {
+          socket.emit('status_update', {
+            presenceStatus,
+            statusMessage: statusMessage.trim(),
+          });
+        }
+        setTimeout(() => setSaveSuccess(false), 3000);
       }
-
-      if (socket) {
-        socket.emit('status_update', {
-          presenceStatus,
-          statusMessage: statusMessage.trim(),
-        });
-      }
-
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       setError(err.data?.error || err.message || 'Failed to update profile.');
     } finally {
@@ -138,14 +115,43 @@ export function SettingsModal({ isOpen, onClose }) {
     }
   };
 
+  const handleEnablePushNotifications = async () => {
+    const granted = await notifications.requestPermission();
+    setNotifPermission(granted ? 'granted' : 'denied');
+    if (granted) {
+      notifications.send('chatO Notifications Active', {
+        body: 'You will now receive instant desktop alerts for new messages!',
+      });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      '⚠️ PERMANENT ACCOUNT DELETION\n\nAre you absolutely sure you want to permanently delete your account?\n\n• All your messages, attachments, voice notes, and profile data will be permanently wiped from the database.\n• This action is irreversible.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      setError('');
+      await deleteAccount();
+      onClose();
+      window.location.href = '/signup';
+    } catch (err) {
+      setError(err.data?.error || err.message || 'Failed to delete account.');
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="settings-modal-card" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
+        {/* Settings Header */}
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Sparkles size={20} color="var(--accent-primary)" />
-            <h3 className="modal-title">Settings & Profile</h3>
+            <h3 className="modal-title">Settings & Customization</h3>
           </div>
           <button className="icon-btn" onClick={onClose}>
             <X size={18} />
@@ -188,7 +194,7 @@ export function SettingsModal({ isOpen, onClose }) {
               onClick={() => setActiveTab('security')}
             >
               <ShieldCheck size={16} />
-              <span>Security</span>
+              <span>Security & Privacy</span>
             </button>
           </div>
 
@@ -197,7 +203,7 @@ export function SettingsModal({ isOpen, onClose }) {
             {activeTab === 'profile' && (
               <form onSubmit={handleSaveProfile} className="settings-section">
                 <h4 className="settings-section-title">Profile Picture & Presence</h4>
-                {error && <div className="auth-error-banner">{error}</div>}
+                {error && <div className="auth-error-banner" style={{ marginBottom: '12px' }}>{error}</div>}
                 {saveSuccess && (
                   <div className="alert-box info" style={{ color: 'var(--status-online)', background: 'rgba(16, 185, 129, 0.1)', padding: '10px', borderRadius: 'var(--radius-md)', marginBottom: '12px' }}>
                     ✅ Profile updated successfully!
@@ -205,28 +211,20 @@ export function SettingsModal({ isOpen, onClose }) {
                 )}
 
                 {/* Profile Photo Upload Section */}
-                <div className="profile-photo-uploader">
-                  <div className="photo-preview-wrapper">
+                <div className="profile-photo-uploader" style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '18px' }}>
+                  <div className="photo-preview-wrapper" style={{ position: 'relative', width: '70px', height: '70px' }}>
                     {avatarImage ? (
-                      <img src={avatarImage} alt="Profile" className="photo-preview-img" />
+                      <img src={avatarImage} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                     ) : selectedAvatar ? (
-                      <div className="photo-emoji-preview">{selectedAvatar}</div>
+                      <div className="sidebar-user-avatar" style={{ width: '100%', height: '100%', fontSize: '1.8rem' }}>{selectedAvatar}</div>
                     ) : (
-                      <div className="photo-placeholder-preview">
+                      <div className="sidebar-user-avatar" style={{ width: '100%', height: '100%', fontSize: '1.4rem' }}>
                         {displayName.substring(0, 2).toUpperCase() || 'U'}
                       </div>
                     )}
-                    <button
-                      type="button"
-                      className="photo-camera-btn"
-                      onClick={() => fileInputRef.current?.click()}
-                      title="Upload profile photo"
-                    >
-                      <Camera size={16} />
-                    </button>
                   </div>
 
-                  <div className="photo-upload-actions">
+                  <div className="photo-upload-actions" style={{ display: 'flex', gap: '8px' }}>
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -257,29 +255,8 @@ export function SettingsModal({ isOpen, onClose }) {
                   </div>
                 </div>
 
-                {/* Presence Status */}
-                <div className="form-group" style={{ marginTop: '16px' }}>
-                  <label className="form-label">Online Presence Status</label>
-                  <div className="presence-options-grid">
-                    {PRESENCE_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        className={`presence-option-btn ${presenceStatus === opt.id ? 'active' : ''}`}
-                        onClick={() => setPresenceStatus(opt.id)}
-                      >
-                        <span className="presence-dot" style={{ backgroundColor: opt.color }} />
-                        <div style={{ textAlign: 'left' }}>
-                          <div style={{ fontWeight: 600, fontSize: '0.8rem' }}>{opt.name}</div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{opt.desc}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="form-group" style={{ marginTop: '16px' }}>
-                  <label className="form-label">Display Name</label>
+                <div className="form-group" style={{ marginBottom: '12px' }}>
+                  <label className="form-label">Display Name / Handle</label>
                   <input
                     type="text"
                     className="form-input"
@@ -291,18 +268,49 @@ export function SettingsModal({ isOpen, onClose }) {
                   />
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Custom Status Message</label>
+                {/* Presence Status Selector */}
+                <div className="form-group" style={{ marginBottom: '14px' }}>
+                  <label className="form-label">Online Presence Status</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    {PRESENCE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        className={`status-option-card ${presenceStatus === opt.id ? 'active' : ''}`}
+                        onClick={() => setPresenceStatus(opt.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '10px',
+                          borderRadius: 'var(--radius-md)',
+                          background: presenceStatus === opt.id ? 'rgba(0, 132, 255, 0.15)' : 'var(--bg-surface)',
+                          border: presenceStatus === opt.id ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: opt.color, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{opt.name}</div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{opt.desc}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom Status Message */}
+                <div className="form-group" style={{ marginBottom: '12px' }}>
+                  <label className="form-label">Custom Status</label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="e.g. 🚀 Building awesome things"
+                    placeholder="What's on your mind?"
                     value={statusMessage}
                     onChange={(e) => setStatusMessage(e.target.value)}
                     maxLength={100}
                   />
-
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
                     {STATUS_PRESETS.map((preset) => (
                       <button
                         key={preset}
@@ -316,30 +324,13 @@ export function SettingsModal({ isOpen, onClose }) {
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Or Pick an Avatar Emoji Icon</label>
-                  <div className="avatar-preset-grid">
-                    {AVATAR_PRESETS.map((av) => (
-                      <button
-                        key={av}
-                        type="button"
-                        className={`avatar-preset-item ${selectedAvatar === av && !avatarImage ? 'selected' : ''}`}
-                        onClick={() => {
-                          setAvatarImage(null);
-                          setSelectedAvatar(selectedAvatar === av ? '' : av);
-                        }}
-                      >
-                        <span>{av}</span>
-                        {selectedAvatar === av && !avatarImage && (
-                          <div className="avatar-check-badge"><Check size={10} /></div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start', marginTop: '16px' }} disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Profile Changes'}
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  style={{ width: '100%', marginTop: '14px' }}
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'Save Profile & Status'}
                 </button>
               </form>
             )}
@@ -347,18 +338,17 @@ export function SettingsModal({ isOpen, onClose }) {
             {/* TAB 2: APPEARANCE */}
             {activeTab === 'appearance' && (
               <div className="settings-section">
-                <h4 className="settings-section-title">Color Mode & Theme</h4>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <h4 className="settings-section-title">Theme Mode</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
                   <button
                     type="button"
                     className={`theme-card ${theme === 'dark' ? 'active' : ''}`}
                     onClick={() => setTheme('dark')}
                   >
-                    <Moon size={22} color="var(--accent-primary)" />
+                    <Moon size={20} color="var(--accent-primary)" />
                     <div>
-                      <div style={{ fontWeight: 600 }}>Dark Theme</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sleek, low-eye strain dark mode</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>OLED Pitch Black</div>
+                      <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Pure #000000 deep dark mode</div>
                     </div>
                   </button>
 
@@ -367,15 +357,15 @@ export function SettingsModal({ isOpen, onClose }) {
                     className={`theme-card ${theme === 'light' ? 'active' : ''}`}
                     onClick={() => setTheme('light')}
                   >
-                    <Sun size={22} color="#f59e0b" />
+                    <Sun size={20} color="#f59e0b" />
                     <div>
-                      <div style={{ fontWeight: 600 }}>Light Theme</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Crisp and high-clarity daylight theme</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Clean Light</div>
+                      <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Bright, high clarity layout</div>
                     </div>
                   </button>
                 </div>
 
-                <h4 className="settings-section-title" style={{ marginTop: '24px' }}>Chat Wallpaper Preset</h4>
+                <h4 className="settings-section-title">Chat Wallpaper Presets</h4>
                 <div className="wallpaper-grid">
                   {WALLPAPERS.map((wp) => (
                     <div
@@ -384,9 +374,9 @@ export function SettingsModal({ isOpen, onClose }) {
                       onClick={() => setWallpaper(wp.id)}
                     >
                       <div className={`wallpaper-preview-box wp-${wp.id}`} />
-                      <div style={{ padding: '8px' }}>
-                        <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{wp.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{wp.desc}</div>
+                      <div style={{ padding: '8px 10px' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{wp.name}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{wp.desc}</div>
                       </div>
                     </div>
                   ))}
@@ -445,11 +435,13 @@ export function SettingsModal({ isOpen, onClose }) {
               </div>
             )}
 
-            {/* TAB 4: SECURITY */}
+            {/* TAB 4: SECURITY & DANGER ZONE */}
             {activeTab === 'security' && (
               <div className="settings-section">
-                <h4 className="settings-section-title">Security & Protocol Status</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <h4 className="settings-section-title">Security & Privacy Protocol</h4>
+                {error && <div className="auth-error-banner" style={{ marginBottom: '12px' }}>{error}</div>}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
                   <div className="security-status-card">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <ShieldCheck size={20} color="var(--status-online)" />
@@ -469,6 +461,41 @@ export function SettingsModal({ isOpen, onClose }) {
                       All text, images, and audio attachments are cleansed before persisting to PostgreSQL.
                     </p>
                   </div>
+                </div>
+
+                {/* DANGER ZONE: ACCOUNT DELETION */}
+                <h4 className="settings-section-title" style={{ color: 'var(--status-error)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <AlertTriangle size={18} />
+                  Danger Zone
+                </h4>
+
+                <div style={{ background: 'rgba(250, 56, 62, 0.08)', border: '1px solid rgba(250, 56, 62, 0.25)', borderRadius: 'var(--radius-lg)', padding: '16px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#ff8589', marginBottom: '4px' }}>
+                    Permanently Delete Account & Wipe All Data
+                  </div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '14px', lineHeight: 1.4 }}>
+                    Once deleted, all your sent messages, attachments, direct conversations, memberships, and profile records will be immediately and irreversibly wiped from the database.
+                  </p>
+
+                  <button
+                    type="button"
+                    className="btn-secondary danger"
+                    style={{
+                      background: 'rgba(250, 56, 62, 0.15)',
+                      borderColor: 'var(--status-error)',
+                      color: '#ff8589',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 16px',
+                    }}
+                    onClick={handleDeleteAccount}
+                    disabled={deleting}
+                  >
+                    <Trash2 size={16} />
+                    {deleting ? 'Wiping All Account Data...' : 'Delete Account Permanently'}
+                  </button>
                 </div>
               </div>
             )}
