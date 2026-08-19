@@ -1,4 +1,8 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+const RAW_BASE = (import.meta.env.VITE_API_BASE_URL || '').trim();
+// If VITE_API_BASE_URL is not set or points to localhost/non-matching origin on production, default to relative path
+const API_BASE = RAW_BASE.startsWith('http') && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && !RAW_BASE.includes(window.location.hostname)
+  ? ''
+  : RAW_BASE;
 
 /**
  * Standard fetch wrapper with credentials included for httpOnly cookie management.

@@ -10,12 +10,20 @@ import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
-// Enable CORS with support for credentials / cookies
+// Enable CORS with support for credentials / cookies across localhost and vercel.app domains
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow localhost dev origins, configured CLIENT_URL, or direct calls
-      if (!origin || origin === config.clientUrl || config.nodeEnv === 'development' || config.nodeEnv === 'test') {
+      // Allow direct API calls, localhost, vercel preview & production domains, or configured CLIENT_URL
+      if (
+        !origin ||
+        origin.endsWith('.vercel.app') ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1') ||
+        origin === config.clientUrl ||
+        config.nodeEnv === 'development' ||
+        config.nodeEnv === 'test'
+      ) {
         return callback(null, true);
       }
       return callback(null, origin);
