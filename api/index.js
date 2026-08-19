@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import prisma from '../backend/src/config/db.js';
 import authRoutes from '../backend/src/routes/authRoutes.js';
 import roomRoutes from '../backend/src/routes/roomRoutes.js';
 import messageRoutes from '../backend/src/routes/messageRoutes.js';
@@ -12,7 +13,6 @@ const app = express();
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Always allow incoming requests from any client domain, preview URL, or direct curl
       callback(null, true);
     },
     credentials: true,
@@ -25,9 +25,24 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// Health Check
-app.get(['/api/health', '/health'], (req, res) => {
-  res.status(200).json({ status: 'ok', time: new Date().toISOString() });
+// Health & Diagnostics Check
+app.get(['/api/health', '/health'], async (req, res) => {
+  try {
+    const userCount = await prisma.user.count();
+    res.status(200).json({
+      status: 'ok',
+      db: 'connected',
+      userCount,
+      time: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(200).json({
+      status: 'ok',
+      db: 'error',
+      dbError: err.message,
+      time: new Date().toISOString(),
+    });
+  }
 });
 
 // Mount routes on both /api/* and /* to handle any Vercel URL rewrite mapping

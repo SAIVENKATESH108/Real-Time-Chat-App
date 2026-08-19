@@ -1,7 +1,12 @@
 {
   "version": 2,
-  "buildCommand": "prisma generate && cd backend && npm install --include=dev && npx prisma generate && cd ../frontend && npm install --include=dev && npm run build",
+  "buildCommand": "npx prisma generate && cd backend && npm install --include=dev && npx prisma generate && cd ../frontend && npm install --include=dev && npm run build",
   "outputDirectory": "frontend/dist",
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "{prisma/**,backend/prisma/**}"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/:path*",
