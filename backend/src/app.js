@@ -14,23 +14,11 @@ const app = express();
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow direct API calls, localhost, vercel preview & production domains, or configured CLIENT_URL
-      if (
-        !origin ||
-        origin.endsWith('.vercel.app') ||
-        origin.includes('localhost') ||
-        origin.includes('127.0.0.1') ||
-        origin === config.clientUrl ||
-        config.nodeEnv === 'development' ||
-        config.nodeEnv === 'test'
-      ) {
-        return callback(null, true);
-      }
-      return callback(null, origin);
+      callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   })
 );
 
@@ -48,7 +36,7 @@ if (config.nodeEnv === 'development') {
 }
 
 // Health Check
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health'], (req, res) => {
   res.status(200).json({
     status: 'ok',
     appName: 'chatO',
@@ -57,19 +45,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/rooms', roomRoutes);
-app.use('/api/rooms', messageRoutes); // Mounts /:roomId/messages and /:roomId/sync
-
-// 404 Handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: `Endpoint ${req.method} ${req.originalUrl} not found.`,
-  });
-});
+// API Routes (Mounted on both /api/... and /... for universal compatibility)
+app.use(['/api/auth', '/auth'], authRoutes);
+app.use(['/api/users', '/users'], userRoutes);
+app.use(['/api/rooms', '/rooms'], roomRoutes);
+app.use(['/api/rooms', '/rooms'], messageRoutes);
 
 // Global Error Handler
 app.use(errorHandler);
