@@ -29,14 +29,14 @@ app.use(cookieParser());
 app.get(['/api/health', '/health'], async (req, res) => {
   try {
     const userCount = await prisma.user.count();
-    res.status(200).json({
+    return res.status(200).json({
       status: 'ok',
       db: 'connected',
       userCount,
       time: new Date().toISOString(),
     });
   } catch (err) {
-    res.status(200).json({
+    return res.status(200).json({
       status: 'ok',
       db: 'error',
       dbError: err.message,
@@ -54,4 +54,7 @@ app.use(['/api/rooms', '/rooms'], messageRoutes);
 // Error handling middleware
 app.use(errorHandler);
 
-export default app;
+// Standard Vercel Serverless export
+export default function handler(req, res) {
+  return app(req, res);
+}

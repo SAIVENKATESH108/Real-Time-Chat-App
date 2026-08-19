@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "prisma generate && cd backend && npm install --include=dev && npx prisma generate && cd ../frontend && npm install --include=dev && npm run build",
+    "build": "npm install --include=dev && npx prisma generate && cd backend && npm install --include=dev && npx prisma generate && cd ../frontend && npm install --include=dev && npm run build",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
