@@ -1,0 +1,16 @@
+{
+  "name": "chato-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "chatO Real-Time Chat App Monorepo",
+  "scripts": {
+    "build": "cd backend && npm install && npx prisma generate && cd ../frontend && npm install && npm run build",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "test": "cd backend && npm test"
+  },
+  "keywords": [],
+  "author": "SAIVENKATESH108",
+  "license": "MIT"
+}
