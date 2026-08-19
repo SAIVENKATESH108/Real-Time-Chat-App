@@ -344,31 +344,61 @@ export async function deleteAccount(req, res, next) {
     const userId = req.user.id;
 
     await prisma.$transaction(async (tx) => {
-      // 1. Delete all messages authored by the user
+      // 1. Nullify any reply references to messages authored by this user
+      const userMessageIds = (
+        await tx.message.findMany({
+          where: { userId },
+          select: { id: true },
+        })
+      ).map((m) => m.id);
+
+      if (userMessageIds.length > 0) {
+        await tx.message.updateMany({
+          where: { replyToId: { in: userMessageIds } },
+          data: { replyToId: null },
+        });
+      }
+
+      // 2. Delete all messages authored by the user
       await tx.message.deleteMany({
         where: { userId },
       });
 
-      // 2. Delete all room memberships for the user
+      // 3. Delete all room memberships for the user
       await tx.roomMember.deleteMany({
         where: { userId },
       });
 
-      // 3. Delete non-general rooms created by the user
+      // 4. Handle rooms created by this user
+      const otherUser = await tx.user.findFirst({
+        where: { id: { not: userId } },
+        select: { id: true },
+      });
+
+      // If this user was the creator of #general, transfer ownership to another user (or skip delete)
+      if (otherUser) {
+        await tx.room.updateMany({
+          where: { name: 'general', createdBy: userId },
+          data: { createdBy: otherUser.id },
+        });
+      }
+
+      // Delete non-general rooms created by the user (like private DMs or subchannels)
       const userRooms = await tx.room.findMany({
         where: {
           createdBy: userId,
           name: { not: 'general' },
         },
+        select: { id: true },
       });
 
-      for (const room of userRooms) {
-        await tx.message.deleteMany({ where: { roomId: room.id } });
-        await tx.roomMember.deleteMany({ where: { roomId: room.id } });
-        await tx.room.delete({ where: { id: room.id } });
+      for (const r of userRooms) {
+        await tx.message.deleteMany({ where: { roomId: r.id } });
+        await tx.roomMember.deleteMany({ where: { roomId: r.id } });
+        await tx.room.delete({ where: { id: r.id } });
       }
 
-      // 4. Delete the User record
+      // 5. Delete the User record
       await tx.user.delete({
         where: { id: userId },
       });
@@ -378,9 +408,10 @@ export async function deleteAccount(req, res, next) {
 
     return res.status(200).json({
       success: true,
-      message: 'Your account and all associated data have been permanently deleted.',
+      message: 'Account and all data permanently deleted.',
     });
   } catch (error) {
+    console.error('Account deletion error:', error);
     next(error);
   }
 }

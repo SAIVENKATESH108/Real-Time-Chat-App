@@ -124,4 +124,35 @@ describe('Auth Integration Tests', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
   });
+
+  it('should permanently delete account and wipe user data from database', async () => {
+    // 1. Create a user to be deleted
+    const deleteCandidate = {
+      email: `todelete_${Date.now()}@example.com`,
+      password: 'password123',
+      displayName: 'To Be Deleted',
+    };
+
+    const signupRes = await request(app)
+      .post('/api/auth/signup')
+      .send(deleteCandidate);
+
+    expect(signupRes.status).toBe(201);
+    const delCookie = signupRes.headers['set-cookie'].find((c) => c.includes('chato_token'));
+    const delUserId = signupRes.body.user.id;
+
+    // 2. Delete account
+    const deleteRes = await request(app)
+      .delete('/api/auth/account')
+      .set('Cookie', [delCookie]);
+
+    expect(deleteRes.status).toBe(200);
+    expect(deleteRes.body.success).toBe(true);
+
+    // 3. Verify user no longer exists in database
+    const dbCheck = await prisma.user.findUnique({
+      where: { id: delUserId },
+    });
+    expect(dbCheck).toBeNull();
+  });
 });
