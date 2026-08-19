@@ -1,0 +1,99 @@
+// Prisma schema for chatO real-time chat application
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["chato"]
+}
+
+model User {
+  id              String       @id @default(uuid())
+  email           String       @unique
+  username        String?      @unique
+  passwordHash    String
+  displayName     String
+  statusMessage   String?      @default("⚡ Available")
+  avatarUrl       String?      @default("")
+  avatarImage     String?      @db.Text
+  presenceStatus  String?      @default("online")
+  themePreference String?      @default("dark")
+  customWallpaper String?      @default("cyber")
+  createdAt       DateTime     @default(now())
+  
+  // Relations
+  roomsCreated Room[]       @relation("UserCreatedRooms")
+  memberships  RoomMember[]
+  messages     Message[]
+
+  @@map("users")
+  @@schema("chato")
+}
+
+model Room {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  topic       String?      @default("")
+  type        String       @default("channel") // 'channel' | 'dm' | 'subchannel'
+  isPrivate   Boolean      @default(false)
+  createdBy   String
+  parentId    String?      // for sub-channels hierarchy
+  createdAt   DateTime     @default(now())
+  
+  // Relations
+  creator     User         @relation("UserCreatedRooms", fields: [createdBy], references: [id], onDelete: Cascade)
+  parent      Room?        @relation("SubChannels", fields: [parentId], references: [id], onDelete: Cascade)
+  subChannels Room[]       @relation("SubChannels")
+  members     RoomMember[]
+  messages    Message[]
+
+  @@map("rooms")
+  @@schema("chato")
+}
+
+model RoomMember {
+  userId   String
+  roomId   String
+  role     String   @default("member") // 'admin' | 'moderator' | 'member'
+  joinedAt DateTime @default(now())
+  
+  // Relations
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room     Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roomId])
+  @@index([userId])
+  @@index([roomId])
+  @@map("room_members")
+  @@schema("chato")
+}
+
+model Message {
+  id             String    @id @default(uuid())
+  roomId         String
+  userId         String
+  content        String    @db.Text
+  gifUrl         String?
+  attachmentUrl  String?   @db.Text
+  attachmentType String?   // 'image' | 'audio' | 'file'
+  audioDuration  Int?      // in seconds
+  replyToId      String?
+  isDeleted      Boolean   @default(false)
+  reactions      Json?     @default("{}")
+  createdAt      DateTime  @default(now())
+  
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Message[] @relation("MessageReplies")
+
+  @@index([roomId, createdAt])
+  @@index([userId])
+  @@map("messages")
+  @@schema("chato")
+}

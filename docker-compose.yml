@@ -1,0 +1,25 @@
+# Docker Compose configuration for local PostgreSQL database
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: chato_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: chato_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - chato_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d chato_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  chato_pgdata:
+    driver: local
