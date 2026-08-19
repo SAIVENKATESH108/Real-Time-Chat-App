@@ -26,6 +26,9 @@ export function ChatPage() {
 
   const { onlineUsers } = usePresence(activeRoom?.id);
 
+  // Detect mobile device
+  const isMobileScreen = typeof window !== 'undefined' && window.innerWidth <= 768;
+
   // Load initial rooms
   const loadRooms = async () => {
     try {
@@ -45,7 +48,6 @@ export function ChatPage() {
           if (targetRoom) {
             setActiveRoom(targetRoom);
           } else {
-            // Fetch directly if not in initial list (e.g. private room)
             try {
               const res = await api.rooms.getById(roomParam);
               if (res.success && res.room) {
@@ -56,10 +58,11 @@ export function ChatPage() {
                 setActiveRoom(res.room);
               }
             } catch (e) {
-              if (data.rooms.length > 0) setActiveRoom(data.rooms[0]);
+              if (!isMobileScreen && data.rooms.length > 0) setActiveRoom(data.rooms[0]);
             }
           }
-        } else if (!activeRoom && data.rooms.length > 0) {
+        } else if (!isMobileScreen && !activeRoom && data.rooms.length > 0) {
+          // On desktop, default to the first room. On mobile, keep sidebar visible!
           setActiveRoom(data.rooms[0]);
         }
       }
@@ -130,7 +133,7 @@ export function ChatPage() {
   const handleChannelDeleted = (deletedRoomId) => {
     setRooms((prev) => prev.filter((r) => r.id !== deletedRoomId));
     const remaining = rooms.filter((r) => r.id !== deletedRoomId);
-    if (remaining.length > 0) {
+    if (remaining.length > 0 && !isMobileScreen) {
       setActiveRoom(remaining[0]);
     } else {
       setActiveRoom(null);

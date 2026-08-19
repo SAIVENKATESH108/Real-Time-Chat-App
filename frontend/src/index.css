@@ -2421,10 +2421,28 @@ input, textarea, select {
 /* ==========================================================================
    MOBILE RESPONSIVENESS (Screens <= 768px)
    ========================================================================== */
+/* ==========================================================================
+   MOBILE RESPONSIVENESS (Screens <= 768px & Native Mobile Experience)
+   ========================================================================== */
 @media (max-width: 768px) {
+  html, body, #root {
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    touch-action: manipulation;
+  }
+
+  .app-container {
+    height: 100%;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
   .navbar {
-    height: 52px;
-    padding: 0 14px;
+    height: 48px;
+    padding: 0 12px;
   }
 
   .brand-badge, .nav-connection-indicator {
@@ -2432,47 +2450,130 @@ input, textarea, select {
   }
 
   .chat-layout {
-    height: calc(100vh - 52px - 56px);
+    flex: 1;
+    height: calc(100dvh - 48px - 54px);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* When inside a chat room on mobile */
+  .chat-layout.has-active-room {
+    height: calc(100dvh - 48px);
+  }
+
+  .chat-layout.has-active-room .sidebar {
+    display: none !important;
+  }
+
+  .chat-layout.has-active-room .chat-main {
+    display: flex !important;
+    width: 100%;
+    height: 100%;
+  }
+
+  .chat-layout.has-active-room ~ .mobile-bottom-nav {
+    display: none !important;
+  }
+
+  /* When viewing chats list on mobile */
+  .chat-layout:not(.has-active-room) .chat-main {
+    display: none !important;
+  }
+
+  .chat-layout:not(.has-active-room) .sidebar {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    border-right: none;
   }
 
   .mobile-bottom-nav {
     display: flex;
+    height: 54px;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   .mobile-back-btn {
-    display: flex;
+    display: flex !important;
+    margin-right: 2px;
   }
 
-  .chat-layout.has-active-room .sidebar {
+  .chat-header {
+    height: 52px;
+    padding: 0 10px;
+  }
+
+  .room-info {
+    gap: 6px;
+    max-width: calc(100vw - 160px);
+  }
+
+  .room-info-name {
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .room-info-meta {
     display: none;
   }
 
-  .chat-layout:not(.has-active-room) .chat-main {
-    display: none;
+  .chat-input-bar {
+    padding: 8px 10px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    gap: 6px;
   }
 
-  .sidebar {
-    width: 100%;
-    min-width: 100%;
-    border-right: none;
+  .chat-input-wrapper {
+    padding: 6px 10px;
+  }
+
+  .chat-textarea {
+    font-size: 0.9rem;
+    min-height: 20px;
+  }
+
+  .btn-send, .btn-voice-record {
+    width: 38px;
+    height: 38px;
+  }
+
+  .message-item-container {
+    max-width: 90%;
+  }
+
+  .message-bubble {
+    padding: 8px 12px;
+    font-size: 0.875rem;
   }
 
   .member-sidebar {
     position: fixed;
-    top: 52px;
+    top: 48px;
     right: 0;
-    bottom: 56px;
-    width: 270px;
-    z-index: 40;
-    box-shadow: var(--shadow-lg);
+    bottom: 0;
+    width: 80%;
+    max-width: 300px;
+    z-index: 60;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.7);
   }
 
-  .message-item-container {
-    max-width: 92%;
+  /* Modals & Popovers on Mobile */
+  .modal-backdrop {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
+  .modal-card, .settings-modal-card {
+    max-height: 85vh;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
   }
 
   .settings-layout {
     flex-direction: column;
+    max-height: 70vh;
   }
 
   .settings-nav {
@@ -2481,16 +2582,32 @@ input, textarea, select {
     border-right: none;
     border-bottom: 1px solid var(--border-subtle);
     overflow-x: auto;
+    padding: 6px;
   }
 
   .settings-nav-item {
-    padding: 8px 10px;
-    font-size: 0.8rem;
+    padding: 6px 10px;
+    font-size: 0.75rem;
     white-space: nowrap;
   }
 
   .emoji-picker-popover, .gif-picker-popover {
-    width: 290px;
-    right: -10px;
+    position: fixed;
+    bottom: 60px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: calc(100vw - 24px);
+    z-index: 100;
+  }
+
+  .call-modal-card {
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .call-video-grid {
+    height: calc(100dvh - 160px);
   }
 }
