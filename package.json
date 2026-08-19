@@ -4,7 +4,7 @@
   "private": true,
   "description": "chatO Real-Time Chat App Monorepo",
   "scripts": {
-    "build": "cd backend && npm install && npx prisma generate && cd ../frontend && npm install && npm run build",
+    "build": "cd backend && npm install --include=dev && npx prisma generate && cd ../frontend && npm install --include=dev && npm run build",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
